@@ -1,4 +1,4 @@
-const scrapeGuitarSalon = require('../shops/scrapeGuitarSalon');
+const scrapeGuitarSalon = require('../shops/scrapeGuitarSalon.selenium');
 
 async function extractProductInfo(url) {
   if (url.includes('guitarsalon.com')) {
