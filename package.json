@@ -1,7 +1,7 @@
 {
   "name": "guitar-search-backend",
   "version": "1.0.0",
-  "description": "Backend server for AI guitar shopping assistant",
+  "description": "Backend server for AI guitar shopping assistant using Selenium",
   "main": "index.js",
   "scripts": {
     "start": "node index.js"
@@ -17,8 +17,7 @@
     "puppeteer": "^22.2.1",
     "puppeteer-extra": "^3.3.6",
     "puppeteer-extra-plugin-stealth": "^2.11.1",
-    "selenium-webdriver": "^4.21.0",
-    "chromedriver": "^136.0.0"
+    "selenium-webdriver": "^4.21.0"
   },
   "engines": {
     "node": "18.x"
