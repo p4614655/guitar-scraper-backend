@@ -11,25 +11,23 @@ async function scrapeGuitarSalon(url) {
   try {
     console.log(`[Selenium] Navigating to: ${url}`);
     await driver.get(url);
+    await driver.sleep(5000); // Give time for JS
 
-    // Wait for main title
-    const modelElement = await driver.wait(until.elementLocated(By.css('h1')), 10000);
+    const modelElement = await driver.wait(until.elementLocated(By.css('h1')), 15000);
     const modelName = await modelElement.getText().catch(() => 'N/A');
 
-    // Wait and get price
     let price = 'N/A';
     try {
-      const priceElement = await driver.wait(until.elementLocated(By.css('.price')), 5000);
-      price = await priceElement.getText();
+      const priceEl = await driver.wait(until.elementLocated(By.css('.price-wrapper')), 10000);
+      price = await priceEl.getText();
     } catch (err) {
       console.log('[Selenium] Failed to extract price:', err.message);
     }
 
-    // Wait and get description
     let description = 'N/A';
     try {
-      const descElement = await driver.wait(until.elementLocated(By.css('.product-summary-container')), 5000);
-      description = await descElement.getText();
+      const descEl = await driver.wait(until.elementLocated(By.css('div.description')), 10000);
+      description = await descEl.getText();
     } catch (err) {
       console.log('[Selenium] Failed to extract description:', err.message);
     }
@@ -41,7 +39,6 @@ async function scrapeGuitarSalon(url) {
       luthier = modelName.split(' ')[0].trim();
     }
 
-    // Specs
     const specRows = await driver.findElements(By.css('table tr'));
     const specs = {};
     for (let row of specRows) {
@@ -53,7 +50,6 @@ async function scrapeGuitarSalon(url) {
       }
     }
 
-    // Collect up to 5 product-specific image URLs
     const allImages = await driver.findElements(By.css('img'));
     const images = [];
     for (let img of allImages) {
