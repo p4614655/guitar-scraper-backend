@@ -9,12 +9,24 @@ async function scrapeGuitarSalon(url) {
   const driver = await new Builder().forBrowser('chrome').setChromeOptions(options).build();
 
   try {
+    console.log('[Selenium] Navigating to:', url);
     await driver.get(url);
     await driver.sleep(4000);
 
-    const modelName = await driver.findElement(By.css('h1')).getText().catch(() => 'N/A');
-    const price = await driver.findElement(By.css('.price')).getText().catch(() => 'N/A');
-    const description = await driver.findElement(By.css('.product-summary-container')).getText().catch(() => 'N/A');
+    const modelName = await driver.findElement(By.css('h1')).getText().catch(err => {
+      console.error('[Selenium] Failed to extract modelName:', err.message);
+      return 'N/A';
+    });
+
+    const price = await driver.findElement(By.css('.price')).getText().catch(err => {
+      console.error('[Selenium] Failed to extract price:', err.message);
+      return 'N/A';
+    });
+
+    const description = await driver.findElement(By.css('.product-summary-container')).getText().catch(err => {
+      console.error('[Selenium] Failed to extract description:', err.message);
+      return 'N/A';
+    });
 
     let luthier = 'N/A';
     if (modelName.includes('"')) {
@@ -61,7 +73,8 @@ async function scrapeGuitarSalon(url) {
 
     return result;
   } catch (err) {
-    throw new Error(`Selenium scraper failed: ${err.message}`);
+    console.error('[Selenium Scraper Error]', err);
+    throw new Error('Selenium scraper failed.');
   } finally {
     await driver.quit();
   }
