@@ -1,33 +1,22 @@
-// shops/scrapeGuitarSalon.js
-const puppeteer = require('puppeteer-extra');
-const StealthPlugin = require('puppeteer-extra-plugin-stealth');
-puppeteer.use(StealthPlugin());
+// shops/scrapeGuitarSalon.js (Selenium Version 1.0.0-S)
+const { Builder, By } = require('selenium-webdriver');
+const chrome = require('selenium-webdriver/chrome');
 
 async function scrapeGuitarSalon(url) {
-  const browser = await puppeteer.launch({
-    headless: 'new',
-    args: [
-      '--no-sandbox',
-      '--disable-setuid-sandbox',
-      '--disable-dev-shm-usage',
-      '--disable-accelerated-2d-canvas',
-      '--no-first-run',
-      '--no-zygote',
-      '--single-process',
-      '--disable-gpu'
-    ]
-  });
+  const options = new chrome.Options();
+  options.addArguments('--headless');
+  options.addArguments('--no-sandbox');
+  options.addArguments('--disable-dev-shm-usage');
+
+  const driver = await new Builder().forBrowser('chrome').setChromeOptions(options).build();
 
   try {
-    const page = await browser.newPage();
-    await page.goto(url, { waitUntil: 'networkidle2', timeout: 90000 });
+    await driver.get(url);
+    await driver.sleep(3000);
 
-    await autoScroll(page);
-    await delay(3000);
-
-    const modelName = await page.$eval('h1', el => el.textContent.trim()).catch(() => 'N/A');
-    const price = await page.$eval('.price', el => el.textContent.trim()).catch(() => 'N/A');
-    const description = await page.$eval('.product-summary-container', el => el.textContent.trim()).catch(() => 'N/A');
+    const modelName = await driver.findElement(By.css('h1')).getText().catch(() => 'N/A');
+    const price = await driver.findElement(By.css('.price')).getText().catch(() => 'N/A');
+    const description = await driver.findElement(By.css('.product-summary-container')).getText().catch(() => 'N/A');
 
     let luthier = 'N/A';
     if (modelName.includes('"')) {
@@ -36,26 +25,28 @@ async function scrapeGuitarSalon(url) {
       luthier = modelName.split(' ')[0].trim();
     }
 
-    const specs = await page.$$eval('table tr', rows => {
-      const out = {};
-      rows.forEach(row => {
-        const tds = row.querySelectorAll('td');
-        if (tds.length === 2) {
-          const label = tds[0].textContent.trim().toLowerCase();
-          const value = tds[1].textContent.trim();
-          out[label] = value;
-        }
-      });
-      return out;
-    });
+    const specRows = await driver.findElements(By.css('table tr'));
+    const specs = {};
+    for (let row of specRows) {
+      const cells = await row.findElements(By.css('td'));
+      if (cells.length === 2) {
+        const label = (await cells[0].getText()).trim().toLowerCase();
+        const value = (await cells[1].getText()).trim();
+        specs[label] = value;
+      }
+    }
 
-    // Get first valid image from product folder
-    const allImages = await page.$$eval('img', imgs =>
-      imgs.map(img => img.getAttribute('src')).filter(Boolean)
-    );
     const productFolder = url.match(/\/product\/([^/]+)/)?.[1];
-    const filtered = allImages.filter(src => src.includes(`/product/${productFolder}/`));
-    const uniqueImages = [...new Set(filtered)].slice(0, 1); // Keep only 1 for now
+    const allImages = await driver.findElements(By.css('img'));
+    const imageUrls = [];
+    for (let img of allImages) {
+      const src = await img.getAttribute('src');
+      if (src && src.includes(`/product/${productFolder}/`) && src.endsWith('.webp')) {
+        imageUrls.push(src);
+      }
+    }
+
+    const uniqueImages = [...new Set(imageUrls)].slice(0, 5);
 
     const result = {
       "Model Name": modelName,
@@ -71,33 +62,12 @@ async function scrapeGuitarSalon(url) {
       "luthier": luthier
     };
 
-    await browser.close();
     return result;
   } catch (err) {
-    await browser.close();
-    throw new Error(`GSI scraper failed: ${err.message}`);
+    throw new Error(`Selenium scraper failed: ${err.message}`);
+  } finally {
+    await driver.quit();
   }
-}
-
-async function autoScroll(page) {
-  await page.evaluate(async () => {
-    await new Promise(resolve => {
-      let totalHeight = 0;
-      const distance = 200;
-      const timer = setInterval(() => {
-        window.scrollBy(0, distance);
-        totalHeight += distance;
-        if (totalHeight >= document.body.scrollHeight) {
-          clearInterval(timer);
-          resolve();
-        }
-      }, 200);
-    });
-  });
-}
-
-function delay(ms) {
-  return new Promise(resolve => setTimeout(resolve, ms));
 }
 
 module.exports = { scrapeGuitarSalon };
