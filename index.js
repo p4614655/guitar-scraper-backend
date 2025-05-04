@@ -2,7 +2,7 @@
 const express = require('express');
 const cors = require('cors');
 const dotenv = require('dotenv');
-const scrapeGuitarSalon = require('./shops/scrapeGuitarSalon.selenium');
+const { extractProductInfo } = require('./scraper/extractProduct');
 
 dotenv.config();
 
@@ -10,9 +10,9 @@ const app = express();
 app.use(cors());
 app.use(express.json());
 
-// ✅ Selenium scraper route (GET with query param)
+// Unified route for scraping (uses Selenium)
 app.get('/api/scrape-selenium', async (req, res) => {
-  const url = req.query.url;
+  const { url } = req.query;
 
   if (!url) {
     return res.status(400).json({ error: 'Missing "url" query parameter.' });
@@ -20,8 +20,8 @@ app.get('/api/scrape-selenium', async (req, res) => {
 
   try {
     console.log('[Selenium] Navigating to:', url);
-    const data = await scrapeGuitarSalon(url);
-    res.json(data);
+    const productInfo = await extractProductInfo(url);
+    res.json(productInfo);
   } catch (error) {
     console.error('[Selenium] Scrape error:', error.message);
     res.status(500).json({ error: 'Failed to scrape with Selenium.' });
