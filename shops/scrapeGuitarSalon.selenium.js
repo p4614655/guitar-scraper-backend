@@ -11,36 +11,30 @@ async function scrapeGuitarSalon(url) {
   try {
     console.log(`[Selenium] Navigating to: ${url}`);
     await driver.get(url);
+    await driver.sleep(4000);
 
-    await driver.wait(until.elementLocated(By.css('body')), 15000);
-    await driver.executeScript('window.scrollTo(0, document.body.scrollHeight)');
-    await driver.sleep(3000);
+    // Model Name from <h1>
+    const modelName = await driver.findElement(By.css('h1')).getText().catch(() => 'www.guitarsalon.com');
 
-    const modelName = await driver.findElement(By.css('h1')).getText().catch(() => 'N/A');
-
+    // Price from .price-new (inside h3)
     let price = 'N/A';
     try {
-      const priceEl = await driver.wait(until.elementLocated(By.css('div.col-sm-4 .price')), 10000);
+      const priceEl = await driver.wait(until.elementLocated(By.css('h3.price-new')), 10000);
       price = await priceEl.getText();
     } catch (err) {
       console.log('[Selenium] Failed to extract price:', err.message);
     }
 
+    // Description from full container
     let description = 'N/A';
     try {
-      const descEl = await driver.wait(until.elementLocated(By.css('div.col-sm-8.description')), 10000);
-      description = await descEl.getText();
+      const descBlock = await driver.findElement(By.css('div.col-sm-8.description.first-letter-big'));
+      description = await descBlock.getText();
     } catch (err) {
       console.log('[Selenium] Failed to extract description:', err.message);
     }
 
-    let luthier = 'N/A';
-    if (modelName.includes('"')) {
-      luthier = modelName.split('"')[0].trim().replace(/^202\d\s*/, '');
-    } else {
-      luthier = modelName.split(' ')[0].trim();
-    }
-
+    // Specs
     const specRows = await driver.findElements(By.css('table tr'));
     const specs = {};
     for (let row of specRows) {
@@ -52,16 +46,23 @@ async function scrapeGuitarSalon(url) {
       }
     }
 
-    const allImages = await driver.findElements(By.css('img'));
-    const images = [];
-    for (let img of allImages) {
+    // Luthier link extraction fallback
+    let luthier = specs['luthier'] || 'N/A';
+    try {
+      const luthierLink = await driver.findElement(By.css('a[href*="/luthier/"]')).getText();
+      luthier = luthierLink;
+    } catch {}
+
+    // Images - filtering thumbnails only from /product/<productId>/ folder
+    const allImgs = await driver.findElements(By.css('img'));
+    const imgUrls = [];
+    for (let img of allImgs) {
       const src = await img.getAttribute('src');
-      if (src && src.includes('/product/')) {
-        images.push(src);
+      if (src && src.includes('/image/catalog/product/')) {
+        imgUrls.push(src);
       }
     }
-
-    const uniqueImages = [...new Set(images)].slice(0, 5);
+    const uniqueImages = [...new Set(imgUrls)].filter(img => img.includes('/product/')).slice(0, 5);
 
     const result = {
       "Model Name": modelName,
@@ -79,7 +80,7 @@ async function scrapeGuitarSalon(url) {
 
     return result;
   } catch (err) {
-    console.error('[Selenium] Scraper error:', err.message);
+    console.error('[Selenium] Error during scraping:', err.message);
     throw new Error('Failed to scrape with Selenium.');
   } finally {
     await driver.quit();
