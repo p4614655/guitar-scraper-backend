@@ -11,14 +11,16 @@ async function scrapeGuitarSalon(url) {
   try {
     console.log(`[Selenium] Navigating to: ${url}`);
     await driver.get(url);
-    await driver.sleep(5000); // Give time for JS
 
-    const modelElement = await driver.wait(until.elementLocated(By.css('h1')), 15000);
-    const modelName = await modelElement.getText().catch(() => 'N/A');
+    await driver.wait(until.elementLocated(By.css('body')), 15000);
+    await driver.executeScript('window.scrollTo(0, document.body.scrollHeight)');
+    await driver.sleep(3000);
+
+    const modelName = await driver.findElement(By.css('h1')).getText().catch(() => 'N/A');
 
     let price = 'N/A';
     try {
-      const priceEl = await driver.wait(until.elementLocated(By.css('.price-wrapper')), 10000);
+      const priceEl = await driver.wait(until.elementLocated(By.css('div.col-sm-4 .price')), 10000);
       price = await priceEl.getText();
     } catch (err) {
       console.log('[Selenium] Failed to extract price:', err.message);
@@ -26,7 +28,7 @@ async function scrapeGuitarSalon(url) {
 
     let description = 'N/A';
     try {
-      const descEl = await driver.wait(until.elementLocated(By.css('div.description')), 10000);
+      const descEl = await driver.wait(until.elementLocated(By.css('div.col-sm-8.description')), 10000);
       description = await descEl.getText();
     } catch (err) {
       console.log('[Selenium] Failed to extract description:', err.message);
