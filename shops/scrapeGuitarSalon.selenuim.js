@@ -1,18 +1,16 @@
-// shops/scrapeGuitarSalon.js (Selenium Version 1.0.0-S)
+// shops/scrapeGuitarSalon.selenium.js
 const { Builder, By } = require('selenium-webdriver');
 const chrome = require('selenium-webdriver/chrome');
 
 async function scrapeGuitarSalon(url) {
   const options = new chrome.Options();
-  options.addArguments('--headless');
-  options.addArguments('--no-sandbox');
-  options.addArguments('--disable-dev-shm-usage');
+  options.addArguments('--headless', '--no-sandbox', '--disable-dev-shm-usage');
 
   const driver = await new Builder().forBrowser('chrome').setChromeOptions(options).build();
 
   try {
     await driver.get(url);
-    await driver.sleep(3000);
+    await driver.sleep(4000);
 
     const modelName = await driver.findElement(By.css('h1')).getText().catch(() => 'N/A');
     const price = await driver.findElement(By.css('.price')).getText().catch(() => 'N/A');
@@ -36,17 +34,16 @@ async function scrapeGuitarSalon(url) {
       }
     }
 
-    const productFolder = url.match(/\/product\/([^/]+)/)?.[1];
     const allImages = await driver.findElements(By.css('img'));
-    const imageUrls = [];
+    const images = [];
     for (let img of allImages) {
       const src = await img.getAttribute('src');
-      if (src && src.includes(`/product/${productFolder}/`) && src.endsWith('.webp')) {
-        imageUrls.push(src);
+      if (src && src.includes('/product/')) {
+        images.push(src);
       }
     }
 
-    const uniqueImages = [...new Set(imageUrls)].slice(0, 5);
+    const uniqueImages = [...new Set(images)].slice(0, 5);
 
     const result = {
       "Model Name": modelName,
@@ -70,4 +67,4 @@ async function scrapeGuitarSalon(url) {
   }
 }
 
-module.exports = { scrapeGuitarSalon };
+module.exports = scrapeGuitarSalon;
