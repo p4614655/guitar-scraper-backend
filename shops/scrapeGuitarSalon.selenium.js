@@ -3,38 +3,35 @@ const { Builder, By, until } = require('selenium-webdriver');
 const chrome = require('selenium-webdriver/chrome');
 
 async function scrapeGuitarSalon(url) {
+  console.log(`[Selenium] Navigating to: ${url}`);
   const options = new chrome.Options();
   options.addArguments('--headless', '--no-sandbox', '--disable-dev-shm-usage');
 
   const driver = await new Builder().forBrowser('chrome').setChromeOptions(options).build();
 
   try {
-    console.log(`[Selenium] Navigating to: ${url}`);
     await driver.get(url);
-    await driver.sleep(4000);
+    await driver.sleep(3000);
 
-    // Model Name from <h1>
     const modelName = await driver.findElement(By.css('h1')).getText().catch(() => 'www.guitarsalon.com');
+    const price = await driver.findElement(By.css('h3.price-new')).getText().catch(err => {
+      console.warn('[Selenium] Failed to extract price:', err.message);
+      return 'N/A';
+    });
 
-    // Price from .price-new (inside h3)
-    let price = 'N/A';
-    try {
-      const priceEl = await driver.wait(until.elementLocated(By.css('h3.price-new')), 10000);
-      price = await priceEl.getText();
-    } catch (err) {
-      console.log('[Selenium] Failed to extract price:', err.message);
+    const description = await driver.findElement(By.css('div.col-sm-8.description.first-letter-big')).getText().catch(err => {
+      console.warn('[Selenium] Failed to extract description:', err.message);
+      return 'N/A';
+    });
+
+    let luthier = 'N/A';
+    const luthierCell = await driver.findElements(By.xpath("//td[contains(text(),'Luthier')]/following-sibling::td/a"));
+    if (luthierCell.length > 0) {
+      luthier = await luthierCell[0].getText();
+    } else {
+      console.warn('[Selenium] Luthier not found');
     }
 
-    // Description from full container
-    let description = 'N/A';
-    try {
-      const descBlock = await driver.findElement(By.css('div.col-sm-8.description.first-letter-big'));
-      description = await descBlock.getText();
-    } catch (err) {
-      console.log('[Selenium] Failed to extract description:', err.message);
-    }
-
-    // Specs
     const specRows = await driver.findElements(By.css('table tr'));
     const specs = {};
     for (let row of specRows) {
@@ -46,23 +43,18 @@ async function scrapeGuitarSalon(url) {
       }
     }
 
-    // Luthier link extraction fallback
-    let luthier = specs['luthier'] || 'N/A';
-    try {
-      const luthierLink = await driver.findElement(By.css('a[href*="/luthier/"]')).getText();
-      luthier = luthierLink;
-    } catch {}
-
-    // Images - filtering thumbnails only from /product/<productId>/ folder
     const allImgs = await driver.findElements(By.css('img'));
-    const imgUrls = [];
-    for (let img of allImgs) {
+    const productFolder = url.split('/product/')[1]?.split('/')[0];
+    const imageUrls = [];
+
+    for (const img of allImgs) {
       const src = await img.getAttribute('src');
-      if (src && src.includes('/image/catalog/product/')) {
-        imgUrls.push(src);
+      if (src && src.includes(`/product/${productFolder}/`) && src.endsWith('.jpg')) {
+        imageUrls.push(src);
       }
     }
-    const uniqueImages = [...new Set(imgUrls)].filter(img => img.includes('/product/')).slice(0, 5);
+
+    const uniqueImages = [...new Set(imageUrls)].slice(0, 5);
 
     const result = {
       "Model Name": modelName,
@@ -80,7 +72,7 @@ async function scrapeGuitarSalon(url) {
 
     return result;
   } catch (err) {
-    console.error('[Selenium] Error during scraping:', err.message);
+    console.error('[Selenium] Scrape failed:', err.message);
     throw new Error('Failed to scrape with Selenium.');
   } finally {
     await driver.quit();
