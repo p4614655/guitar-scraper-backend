@@ -1,15 +1,12 @@
-const { scrapeGuitarSalon } = require('../shops/scrapeGuitarSalon');
+// scraper/extractProduct.js
+const scrapeGuitarSalon = require('../shops/scrapeGuitarSalon.selenium');
 
 async function extractProductInfo(url) {
-  try {
-    if (url.includes('guitarsalon.com')) {
-      return await scrapeGuitarSalon(url);
-    }
-
-    throw new Error('Unsupported URL');
-  } catch (err) {
-    throw new Error(`Error extracting product info: ${err.message}`);
+  if (url.includes('guitarsalon.com')) {
+    return await scrapeGuitarSalon(url);
   }
+
+  throw new Error('No scraper available for this URL');
 }
 
 module.exports = { extractProductInfo };
