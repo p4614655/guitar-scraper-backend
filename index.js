@@ -1,8 +1,8 @@
+// index.js
 const express = require('express');
 const cors = require('cors');
 const dotenv = require('dotenv');
-const { extractProductInfo } = require('./scraper/extractProduct');
-const scrapeSeleniumRoute = require('./routes/scrape-selenium');
+const scrapeGuitarSalon = require('./shops/scrapeGuitarSalon.selenium');
 
 dotenv.config();
 
@@ -10,19 +10,23 @@ const app = express();
 app.use(cors());
 app.use(express.json());
 
-// Puppeteer route
-app.post('/api/scrape', async (req, res) => {
-  const { url } = req.body;
+// ✅ Selenium scraper route (GET with query param)
+app.get('/api/scrape-selenium', async (req, res) => {
+  const url = req.query.url;
+
+  if (!url) {
+    return res.status(400).json({ error: 'Missing "url" query parameter.' });
+  }
+
   try {
-    const productInfo = await extractProductInfo(url);
-    res.json(productInfo);
+    console.log('[Selenium] Navigating to:', url);
+    const data = await scrapeGuitarSalon(url);
+    res.json(data);
   } catch (error) {
-    res.status(500).json({ error: error.message });
+    console.error('[Selenium] Scrape error:', error.message);
+    res.status(500).json({ error: 'Failed to scrape with Selenium.' });
   }
 });
-
-// Selenium GET route
-app.use('/api', scrapeSeleniumRoute);
 
 const PORT = process.env.PORT || 8080;
 app.listen(PORT, () => {
