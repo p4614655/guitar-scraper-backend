@@ -1,46 +1,25 @@
 // scraper/extractProduct.js
-const puppeteer = require('puppeteer');
-const { parseProductInfo } = require('../utils/gptParser');
 const { scrapeGuitarSalon } = require('../shops/scrapeGuitarSalon');
+const axios = require('axios');
 
 async function extractProductInfo(url) {
   try {
-    // ✅ Use Guitar Salon-specific scraper
     if (url.includes('guitarsalon.com')) {
-      console.log('🔎 Using GSI scraper for:', url);
       return await scrapeGuitarSalon(url);
+    } else {
+      throw new Error('Unsupported domain');
     }
+  } catch (err) {
+    console.error('Primary scraper failed, trying fallback (Selenium)...');
 
-    // 🔁 Fallback to generic GPT-based scraping
-    const browser = await puppeteer.launch({
-      headless: 'new',
-      args: [
-        '--no-sandbox',
-        '--disable-setuid-sandbox',
-        '--disable-dev-shm-usage',
-        '--disable-accelerated-2d-canvas',
-        '--no-first-run',
-        '--no-zygote',
-        '--single-process',
-        '--disable-gpu'
-      ]
-    });
-
-    const page = await browser.newPage();
-    await page.goto(url, { waitUntil: 'networkidle0', timeout: 60000 });
-
-    await page.evaluate(() => window.scrollBy(0, window.innerHeight));
-    await new Promise(resolve => setTimeout(resolve, 3000));
-
-    const htmlContent = await page.content();
-    await browser.close();
-
-    const result = await parseProductInfo(htmlContent);
-    result.url = url;
-    return result;
-  } catch (error) {
-    console.error('Error scraping page:', error.message);
-    throw new Error(`Error scraping page: ${error.message}`);
+    try {
+      const fallbackResponse = await axios.get(
+        `https://your-railway-subdomain.up.railway.app/api/scrape-selenium?url=${encodeURIComponent(url)}`
+      );
+      return fallbackResponse.data;
+    } catch (fallbackError) {
+      throw new Error(`Both scrapers failed: ${fallbackError.message}`);
+    }
   }
 }
 
