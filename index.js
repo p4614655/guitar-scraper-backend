@@ -1,8 +1,8 @@
-// index.js
 const express = require('express');
 const cors = require('cors');
 const dotenv = require('dotenv');
-const scrapeGuitarSalonSelenium = require('./shops/scrapeGuitarSalon.selenium');
+const { extractProductInfo } = require('./scraper/extractProduct');
+const scrapeSeleniumRoute = require('./routes/scrape-selenium');
 
 dotenv.config();
 
@@ -10,22 +10,19 @@ const app = express();
 app.use(cors());
 app.use(express.json());
 
-// ✅ Route: Selenium scraper (POST)
+// Puppeteer route
 app.post('/api/scrape', async (req, res) => {
   const { url } = req.body;
-
-  if (!url || !url.includes('guitarsalon.com')) {
-    return res.status(400).json({ error: 'A valid Guitar Salon URL is required.' });
-  }
-
   try {
-    const productInfo = await scrapeGuitarSalonSelenium(url);
+    const productInfo = await extractProductInfo(url);
     res.json(productInfo);
   } catch (error) {
-    console.error('Error extracting product info:', error.message);
-    res.status(500).json({ error: 'Failed to extract product info.' });
+    res.status(500).json({ error: error.message });
   }
 });
+
+// Selenium GET route
+app.use('/api', scrapeSeleniumRoute);
 
 const PORT = process.env.PORT || 8080;
 app.listen(PORT, () => {
