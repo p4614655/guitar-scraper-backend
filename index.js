@@ -1,4 +1,3 @@
-// index.js
 const express = require('express');
 const cors = require('cors');
 const dotenv = require('dotenv');
@@ -10,21 +9,16 @@ const app = express();
 app.use(cors());
 app.use(express.json());
 
-// Unified route for scraping (uses Selenium)
-app.get('/api/scrape-selenium', async (req, res) => {
+app.get('/api/scrape', async (req, res) => {
   const { url } = req.query;
-
-  if (!url) {
-    return res.status(400).json({ error: 'Missing "url" query parameter.' });
-  }
+  if (!url) return res.status(400).json({ error: 'Missing URL query param' });
 
   try {
-    console.log('[Selenium] Navigating to:', url);
-    const productInfo = await extractProductInfo(url);
-    res.json(productInfo);
+    const data = await extractProductInfo(url);
+    res.json(data);
   } catch (error) {
-    console.error('[Selenium] Scrape error:', error.message);
-    res.status(500).json({ error: 'Failed to scrape with Selenium.' });
+    console.error('[Scrape Error]', error.message);
+    res.status(500).json({ error: 'Failed to scrape product info.' });
   }
 });
 
