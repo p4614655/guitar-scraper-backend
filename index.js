@@ -1,3 +1,4 @@
+// index.js
 const express = require('express');
 const cors = require('cors');
 const dotenv = require('dotenv');
@@ -9,16 +10,15 @@ const app = express();
 app.use(cors());
 app.use(express.json());
 
-app.get('/api/scrape', async (req, res) => {
-  const { url } = req.query;
-  if (!url) return res.status(400).json({ error: 'Missing URL query param' });
+app.get('/api/scrape-selenium', async (req, res) => {
+  const url = req.query.url;
+  if (!url) return res.status(400).json({ error: 'Missing URL query parameter.' });
 
   try {
-    const data = await extractProductInfo(url);
-    res.json(data);
-  } catch (error) {
-    console.error('[Scrape Error]', error.message);
-    res.status(500).json({ error: 'Failed to scrape product info.' });
+    const product = await extractProductInfo(url);
+    res.json(product);
+  } catch (err) {
+    res.status(500).json({ error: err.message });
   }
 });
 
