@@ -1,4 +1,4 @@
-// index.js
+// Version 1.7.7
 const express = require('express');
 const cors = require('cors');
 const dotenv = require('dotenv');
@@ -10,15 +10,18 @@ const app = express();
 app.use(cors());
 app.use(express.json());
 
-app.get('/api/scrape-selenium', async (req, res) => {
-  const url = req.query.url;
-  if (!url) return res.status(400).json({ error: 'Missing URL query parameter.' });
+app.get('/', (req, res) => {
+  res.send('Guitar scraper backend running.');
+});
 
+app.post('/api/scrape', async (req, res) => {
+  const { url } = req.body;
   try {
-    const product = await extractProductInfo(url);
-    res.json(product);
-  } catch (err) {
-    res.status(500).json({ error: err.message });
+    const productInfo = await extractProductInfo(url);
+    res.json(productInfo);
+  } catch (error) {
+    console.error('Error extracting product info:', error.message);
+    res.status(500).json({ error: error.message });
   }
 });
 
