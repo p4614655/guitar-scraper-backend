@@ -1,4 +1,4 @@
-// Version 1.7.7 - Improved selector logic and robustness
+// Version 1.8.1
 const { Builder, By, until } = require('selenium-webdriver');
 const chrome = require('selenium-webdriver/chrome');
 
@@ -12,25 +12,24 @@ async function scrapeGuitarSalon(url) {
 
   try {
     await driver.get(url);
-    await driver.sleep(5000); // Allow JS content to render
 
     const modelName = await driver.findElement(By.css('h1')).getText().catch(() => new URL(url).hostname);
 
-    let price = 'N/A';
-    try {
-      const priceElement = await driver.wait(until.elementLocated(By.css('h3.price-new')), 8000);
-      price = await priceElement.getText();
-    } catch (e) {
+    const price = await driver.wait(
+      until.elementLocated(By.css('h3.price-new')),
+      15000
+    ).getText().catch((e) => {
       console.error('[Selenium] Failed to extract price:', e.message);
-    }
+      return 'N/A';
+    });
 
-    let description = 'N/A';
-    try {
-      const descContainer = await driver.wait(until.elementLocated(By.css('div.col-sm-8.description')), 8000);
-      description = await descContainer.getText();
-    } catch (e) {
+    const description = await driver.wait(
+      until.elementLocated(By.css('.product-summary-container')),
+      15000
+    ).getText().catch((e) => {
       console.error('[Selenium] Failed to extract description:', e.message);
-    }
+      return 'N/A';
+    });
 
     let luthier = 'N/A';
     if (modelName.includes('"')) {
@@ -50,9 +49,9 @@ async function scrapeGuitarSalon(url) {
       }
     }
 
-    const allImgs = await driver.findElements(By.css('img'));
+    const allImages = await driver.findElements(By.css('img'));
     const images = [];
-    for (let img of allImgs) {
+    for (let img of allImages) {
       const src = await img.getAttribute('src');
       if (src && src.includes('/product/')) {
         images.push(src);
