@@ -1,4 +1,5 @@
-// Version 1.8.1
+// Version 1.8.0
+// shops/scrapeGuitarSalon.selenium.js
 const { Builder, By, until } = require('selenium-webdriver');
 const chrome = require('selenium-webdriver/chrome');
 
@@ -12,20 +13,19 @@ async function scrapeGuitarSalon(url) {
 
   try {
     await driver.get(url);
+    await driver.sleep(4000);
 
     const modelName = await driver.findElement(By.css('h1')).getText().catch(() => new URL(url).hostname);
 
     const price = await driver.wait(
-      until.elementLocated(By.css('h3.price-new')),
-      15000
+      until.elementLocated(By.css('h3.price-new')), 10000
     ).getText().catch((e) => {
       console.error('[Selenium] Failed to extract price:', e.message);
       return 'N/A';
     });
 
     const description = await driver.wait(
-      until.elementLocated(By.css('.product-summary-container')),
-      15000
+      until.elementLocated(By.css('div.col-sm-8.description')), 10000
     ).getText().catch((e) => {
       console.error('[Selenium] Failed to extract description:', e.message);
       return 'N/A';
