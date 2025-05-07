@@ -1,5 +1,4 @@
-// Version 1.8.0
-// shops/scrapeGuitarSalon.selenium.js
+// scrapeGuitarSalon.selenium.js - Version 1.8.1
 const { Builder, By, until } = require('selenium-webdriver');
 const chrome = require('selenium-webdriver/chrome');
 
@@ -13,29 +12,17 @@ async function scrapeGuitarSalon(url) {
 
   try {
     await driver.get(url);
-    await driver.sleep(4000);
+    await driver.sleep(3000);
 
     const modelName = await driver.findElement(By.css('h1')).getText().catch(() => new URL(url).hostname);
+    const price = await driver.wait(until.elementLocated(By.css('h3.price-new')), 10000).getText().catch(() => 'N/A');
 
-    const price = await driver.wait(
-      until.elementLocated(By.css('h3.price-new')), 10000
-    ).getText().catch((e) => {
-      console.error('[Selenium] Failed to extract price:', e.message);
-      return 'N/A';
-    });
-
-    const description = await driver.wait(
-      until.elementLocated(By.css('div.col-sm-8.description')), 10000
-    ).getText().catch((e) => {
-      console.error('[Selenium] Failed to extract description:', e.message);
-      return 'N/A';
-    });
-
-    let luthier = 'N/A';
-    if (modelName.includes('"')) {
-      luthier = modelName.split('"')[0].trim().replace(/^202\d\s*/, '');
-    } else {
-      luthier = modelName.split(' ')[0].trim();
+    const descContainer = await driver.findElement(By.css('div.col-sm-8.description.first-letter-big')).catch(() => null);
+    let description = 'N/A';
+    if (descContainer) {
+      const ps = await descContainer.findElements(By.css('p'));
+      const descParts = await Promise.all(ps.map(p => p.getText()));
+      description = descParts.join('\n\n').trim();
     }
 
     const specRows = await driver.findElements(By.css('table tr'));
@@ -49,18 +36,23 @@ async function scrapeGuitarSalon(url) {
       }
     }
 
-    const allImages = await driver.findElements(By.css('img'));
-    const images = [];
-    for (let img of allImages) {
+    const allImgs = await driver.findElements(By.css('img'));
+    const srcs = [];
+    for (let img of allImgs) {
       const src = await img.getAttribute('src');
-      if (src && src.includes('/product/')) {
-        images.push(src);
+      if (src && src.includes('/catalog/product/') && (src.endsWith('.jpg') || src.endsWith('.webp')) && !src.includes('flag')) {
+        srcs.push(src);
       }
     }
 
-    const uniqueImages = [...new Set(images)].slice(0, 5);
+    const images = [...new Set(srcs)].slice(0, 5);
 
-    return {
+    let luthier = 'www.guitarsalon.com';
+    if (modelName.includes('"')) {
+      luthier = modelName.split('"')[0].trim().replace(/^202\d\s*/, '');
+    }
+
+    const result = {
       "Model Name": modelName,
       "Year": specs['year'] || '2025',
       "Top Wood": specs['top'] || 'Spruce',
@@ -69,10 +61,12 @@ async function scrapeGuitarSalon(url) {
       "Price": price,
       "Condition": specs['condition'] || 'New',
       "Description": description,
-      "Images": uniqueImages.length > 0 ? uniqueImages : [`See more: ${url}`],
+      "Images": images.length ? images : [`See more: ${url}`],
       "url": url,
       "luthier": luthier
     };
+
+    return result;
   } catch (err) {
     console.error('[Selenium] Scrape error:', err.message);
     throw new Error('Failed to scrape with Selenium.');
