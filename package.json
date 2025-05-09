@@ -1,7 +1,7 @@
 {
   "name": "guitar-search-backend",
-  "version": "1.8.3",
-  "description": "Selenium-based scraping backend for guitarsalon.com",
+  "version": "1.0.0",
+  "description": "Backend server for AI guitar shopping assistant using Selenium",
   "main": "index.js",
   "scripts": {
     "start": "node index.js"
@@ -9,9 +9,10 @@
   "author": "albagb",
   "license": "MIT",
   "dependencies": {
-    "express": "^4.18.2",
+    "axios": "^1.6.0",
     "cors": "^2.8.5",
     "dotenv": "^16.3.1",
+    "express": "^4.18.2",
     "selenium-webdriver": "^4.21.0"
   },
   "engines": {
