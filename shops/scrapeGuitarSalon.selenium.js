@@ -1,4 +1,4 @@
-// Version 1.8.0 – Selenium scraper using matching ChromeDriver 136
+// Version 1.8.2 – shops/scrapeGuitarSalon.selenium.js
 const { Builder, By, until } = require('selenium-webdriver');
 const chrome = require('selenium-webdriver/chrome');
 
@@ -8,18 +8,15 @@ async function scrapeGuitarSalon(url) {
   const options = new chrome.Options();
   options.addArguments('--headless', '--no-sandbox', '--disable-dev-shm-usage');
 
-  const driver = await new Builder()
-    .forBrowser('chrome')
-    .setChromeOptions(options)
-    .build();
+  const driver = await new Builder().forBrowser('chrome').setChromeOptions(options).build();
 
   try {
     await driver.get(url);
-    await driver.sleep(3000);
+    await driver.sleep(5000);
 
     const modelName = await driver.findElement(By.css('h1')).getText().catch(() => new URL(url).hostname);
     const price = await driver.findElement(By.css('h3.price-new')).getText().catch(() => 'N/A');
-    const description = await driver.findElement(By.css('div.col-sm-8.description')).getText().catch(() => 'N/A');
+    const description = await driver.findElement(By.css('.product-summary-container')).getText().catch(() => 'N/A');
 
     let luthier = 'N/A';
     if (modelName.includes('"')) {
