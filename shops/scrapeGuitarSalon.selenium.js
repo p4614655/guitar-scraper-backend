@@ -1,9 +1,9 @@
-// Version 1.8.2 – shops/scrapeGuitarSalon.selenium.js
+// version 1.8.0
 const { Builder, By, until } = require('selenium-webdriver');
 const chrome = require('selenium-webdriver/chrome');
 
 async function scrapeGuitarSalon(url) {
-  console.log(`[Selenium] Navigating to: ${url}`);
+  console.log('[Selenium] Navigating to:', url);
 
   const options = new chrome.Options();
   options.addArguments('--headless', '--no-sandbox', '--disable-dev-shm-usage');
@@ -16,7 +16,14 @@ async function scrapeGuitarSalon(url) {
 
     const modelName = await driver.findElement(By.css('h1')).getText().catch(() => new URL(url).hostname);
     const price = await driver.findElement(By.css('h3.price-new')).getText().catch(() => 'N/A');
-    const description = await driver.findElement(By.css('.product-summary-container')).getText().catch(() => 'N/A');
+
+    let description = 'N/A';
+    try {
+      const descElement = await driver.findElement(By.css('.product-summary-container, .entry-widget'));
+      description = await descElement.getText();
+    } catch (e) {
+      console.error('[Selenium] Description fallback failed:', e.message);
+    }
 
     let luthier = 'N/A';
     if (modelName.includes('"')) {
@@ -37,15 +44,15 @@ async function scrapeGuitarSalon(url) {
     }
 
     const allImages = await driver.findElements(By.css('img'));
-    const images = [];
+    const imageUrls = [];
     for (let img of allImages) {
       const src = await img.getAttribute('src');
       if (src && src.includes('/product/')) {
-        images.push(src);
+        imageUrls.push(src);
       }
     }
 
-    const uniqueImages = [...new Set(images)].slice(0, 5);
+    const uniqueImages = [...new Set(imageUrls)].slice(0, 5);
 
     return {
       "Model Name": modelName,
