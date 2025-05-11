@@ -1,7 +1,7 @@
 {
   "name": "guitar-search-backend",
-  "version": "1.0.0",
-  "description": "Backend server for AI guitar shopping assistant using Selenium",
+  "version": "1.8.0",
+  "description": "Backend server for AI guitar shopping assistant",
   "main": "index.js",
   "scripts": {
     "start": "node index.js"
