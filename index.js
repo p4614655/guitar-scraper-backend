@@ -1,8 +1,8 @@
-// Version 1.8.2 – index.js
+// version 1.8.0
 const express = require('express');
 const cors = require('cors');
 const dotenv = require('dotenv');
-const { extractProductInfo } = require('./scraper/extractProduct');
+const scrapeGuitarSalon = require('./shops/scrapeGuitarSalon.selenium');
 
 dotenv.config();
 
@@ -13,14 +13,14 @@ app.use(express.json());
 app.get('/api/scrape-selenium', async (req, res) => {
   const url = req.query.url;
   if (!url) {
-    return res.status(400).json({ error: 'Missing "url" query parameter.' });
+    return res.status(400).json({ error: 'Missing ?url parameter' });
   }
 
   try {
-    const productInfo = await extractProductInfo(url);
-    res.json(productInfo);
+    const result = await scrapeGuitarSalon(url);
+    res.json(result);
   } catch (error) {
-    console.error('Scraper Error:', error.message);
+    console.error('[Selenium] Scrape failed:', error.message);
     res.status(500).json({ error: 'Failed to scrape with Selenium.' });
   }
 });
