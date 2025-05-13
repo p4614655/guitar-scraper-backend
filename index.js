@@ -1,8 +1,8 @@
-// version 1.8.0
+// index.js — v1.8.0
 const express = require('express');
 const cors = require('cors');
 const dotenv = require('dotenv');
-const scrapeGuitarSalon = require('./shops/scrapeGuitarSalon.selenium');
+const { extractProductInfo } = require('./scraper/extractProduct');
 
 dotenv.config();
 
@@ -10,18 +10,29 @@ const app = express();
 app.use(cors());
 app.use(express.json());
 
+// Puppeteer endpoint
+app.post('/api/scrape', async (req, res) => {
+  const { url } = req.body;
+  try {
+    const productInfo = await extractProductInfo(url);
+    res.json(productInfo);
+  } catch (error) {
+    res.status(500).json({ error: error.message });
+  }
+});
+
+// Selenium endpoint (GET)
 app.get('/api/scrape-selenium', async (req, res) => {
   const url = req.query.url;
   if (!url) {
-    return res.status(400).json({ error: 'Missing ?url parameter' });
+    return res.status(400).json({ error: 'Missing URL parameter.' });
   }
 
   try {
-    const result = await scrapeGuitarSalon(url);
-    res.json(result);
+    const productInfo = await extractProductInfo(url, 'selenium');
+    res.json(productInfo);
   } catch (error) {
-    console.error('[Selenium] Scrape failed:', error.message);
-    res.status(500).json({ error: 'Failed to scrape with Selenium.' });
+    res.status(500).json({ error: error.message });
   }
 });
 
