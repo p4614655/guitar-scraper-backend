@@ -1,4 +1,4 @@
-// scraper/extractProduct.js — v1.8.2
+// extractProduct.js — v1.8.2
 const scrapeGuitarSalonSelenium = require('../shops/scrapeGuitarSalon.selenium');
 
 async function extractProductInfo(url, method = 'selenium') {
