@@ -1,5 +1,4 @@
-// Version 1.8.0
-// shops/scrapeGuitarSalon.selenium.js
+// Version 1.8.1 — Guitar Salon Selenium Scraper
 const { Builder, By, until } = require('selenium-webdriver');
 const chrome = require('selenium-webdriver/chrome');
 
@@ -21,13 +20,13 @@ async function scrapeGuitarSalon(url) {
       return 'N/A';
     });
 
-    const description = await driver.findElement(By.css('.product-summary-container')).getText().catch((e) => {
+    const description = await driver.findElement(By.css('div.product-summary')).getText().catch((e) => {
       console.error('[Selenium] Description not found:', e.message);
       return 'N/A';
     });
 
-    // Availability detection
-    const availabilityText = await driver.findElements(By.xpath("//div[contains(@class,'product-label') and contains(translate(text(), 'ABCDEFGHIJKLMNOPQRSTUVWXYZ', 'abcdefghijklmnopqrstuvwxyz'), 'sold')]")).then(async els => els.length > 0 ? 'Sold' : 'Available');
+    const availability = await driver.findElements(By.xpath("//*[contains(@class, 'product-label') and contains(translate(text(), 'ABCDEFGHIJKLMNOPQRSTUVWXYZ', 'abcdefghijklmnopqrstuvwxyz'), 'sold')]"))
+      .then(els => els.length > 0 ? 'Sold' : 'Available');
 
     let luthier = 'N/A';
     if (modelName.includes('"')) {
@@ -47,10 +46,18 @@ async function scrapeGuitarSalon(url) {
       }
     }
 
-    // Get one thumbnail image (webp or jpg)
-    const image = await driver.findElement(By.css('img')).getAttribute('src').catch(() => null);
+    const allImages = await driver.findElements(By.css('img'));
+    const images = [];
+    for (let img of allImages) {
+      const src = await img.getAttribute('src');
+      if (src && src.includes('/image/catalog/product/')) {
+        images.push(src);
+      }
+    }
 
-    const result = {
+    const uniqueImages = [...new Set(images)].slice(0, 1);
+
+    return {
       "Model Name": modelName,
       "Year": specs['year'] || '2025',
       "Top Wood": specs['top'] || 'Spruce',
@@ -58,14 +65,13 @@ async function scrapeGuitarSalon(url) {
       "Fingerboard": specs['fingerboard'] || 'N/A',
       "Price": price,
       "Condition": specs['condition'] || 'New',
-      "Availability": availabilityText,
+      "Availability": availability,
       "Description": description,
-      "Images": image ? [image] : [`See more: ${url}`],
+      "Images": uniqueImages.length > 0 ? uniqueImages : [`See more: ${url}`],
       "url": url,
       "luthier": luthier
     };
 
-    return result;
   } catch (err) {
     console.error('[Selenium] Scrape error:', err.message);
     throw new Error('Failed to scrape with Selenium.');
