@@ -1,4 +1,4 @@
-// scraper/extractProduct.js — v1.8.3
+// scraper/extractProduct.js — v1.8.4
 const scrapeGuitarSalonSelenium = require('../shops/scrapeGuitarSalon.selenium');
 
 async function extractProductInfo(url, method = 'selenium') {
@@ -10,7 +10,7 @@ async function extractProductInfo(url, method = 'selenium') {
     }
   }
 
-  throw new Error('Unsupported website or scraping method.');
+  throw new Error('Unsupported website or method.');
 }
 
 module.exports = { extractProductInfo };
