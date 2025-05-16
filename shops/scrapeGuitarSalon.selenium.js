@@ -1,4 +1,4 @@
-// shops/scrapeGuitarSalon.selenium.js — v1.8.5
+// shops/scrapeGuitarSalon.selenium.js — v1.8.6
 const { Builder, By } = require('selenium-webdriver');
 const chrome = require('selenium-webdriver/chrome');
 
@@ -12,20 +12,20 @@ async function scrapeGuitarSalon(url) {
 
   try {
     await driver.get(url);
-    await driver.sleep(6000); // wait for DOM content
+    await driver.sleep(5000);
 
     const modelName = await driver.findElement(By.css('h1')).getText().catch(() => new URL(url).hostname);
-    const price = await driver.findElement(By.css('h3.price-new')).getText().catch((e) => {
+
+    const price = await driver.findElement(By.css('h3[data-update="price"]')).getText().catch((e) => {
       console.error('[Selenium] Price not found:', e.message);
       return 'N/A';
     });
 
-    const description = await driver.findElement(By.css('#tab-description')).getText().catch((e) => {
+    const description = await driver.findElement(By.css('div[id^="entry_"][data-id]')).getText().catch((e) => {
       console.error('[Selenium] Description not found:', e.message);
       return 'N/A';
     });
 
-    // Availability check
     const isSold = await driver.findElements(By.css('.product-label')).then(els =>
       Promise.all(els.map(el => el.getText())).then(texts =>
         texts.some(text => text.toLowerCase().includes('sold'))
@@ -33,13 +33,11 @@ async function scrapeGuitarSalon(url) {
     );
     const availability = isSold ? 'Sold' : 'Available';
 
-    // Parse luthier name from link or model
     const luthier = await driver.findElement(By.css('a[href*="/luthier/"]')).getText().catch(() => {
       if (modelName.includes('"')) return modelName.split('"')[0].trim().replace(/^202\d\s*/, '');
       return modelName.split(' ')[0].trim();
     });
 
-    // Get specs
     const specs = {};
     const rows = await driver.findElements(By.css('table tr'));
     for (let row of rows) {
@@ -51,10 +49,9 @@ async function scrapeGuitarSalon(url) {
       }
     }
 
-    // Get first thumbnail image
-    const image = await driver.findElement(By.css('.thumbnail img')).getAttribute('src').catch(() => null);
+    const image = await driver.findElement(By.css('img.fancybox-image')).getAttribute('src').catch(() => null);
 
-    const result = {
+    return {
       "Model Name": modelName,
       "Year": specs['year'] || '2025',
       "Top Wood": specs['top'] || 'Spruce',
@@ -69,7 +66,6 @@ async function scrapeGuitarSalon(url) {
       "luthier": luthier
     };
 
-    return result;
   } catch (err) {
     console.error('[Selenium] Scrape error:', err.message);
     throw new Error('Failed to scrape with Selenium.');
