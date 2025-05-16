@@ -1,4 +1,4 @@
-// index.js — v1.8.3
+// index.js — v1.8.7
 const express = require('express');
 const cors = require('cors');
 const dotenv = require('dotenv');
@@ -10,7 +10,6 @@ const app = express();
 app.use(cors());
 app.use(express.json());
 
-// Puppeteer endpoint
 app.post('/api/scrape', async (req, res) => {
   const { url } = req.body;
   try {
@@ -21,7 +20,6 @@ app.post('/api/scrape', async (req, res) => {
   }
 });
 
-// Selenium endpoint (GET)
 app.get('/api/scrape-selenium', async (req, res) => {
   const url = req.query.url;
   if (!url) {
