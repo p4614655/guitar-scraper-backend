@@ -12,25 +12,24 @@ async function scrapeGuitarSalon(url) {
 
   try {
     await driver.get(url);
+    await driver.sleep(2000); // initial wait
 
     const modelName = await driver.findElement(By.css('h1')).getText().catch(() => new URL(url).hostname);
 
+    // ✅ Wait for price element
     let price = 'N/A';
     try {
-      const priceElem = await driver.wait(
-        until.elementLocated(By.css('h3[data-update="price"].price-new.mb-0')),
-        8000
-      );
-      price = await priceElem.getText();
+      const priceEl = await driver.wait(until.elementLocated(By.css('h3[data-update="price"].price-new.mb-0')), 8000);
+      price = await priceEl.getText();
     } catch (e) {
       console.error('[Selenium] Price not found:', e.message);
     }
 
-    let availability = 'Available';
-    const soldLabels = await driver.findElements(By.xpath("//div[contains(@class,'product-label') and contains(translate(text(), 'ABCDEFGHIJKLMNOPQRSTUVWXYZ', 'abcdefghijklmnopqrstuvwxyz'), 'sold')]"));
-    if (soldLabels.length > 0) {
-      availability = 'Sold';
-    }
+    // ⛔ Remove failing description scraping
+    const description = 'N/A';
+
+    const availabilityText = await driver.findElements(By.xpath("//div[contains(@class,'product-label') and contains(translate(text(), 'ABCDEFGHIJKLMNOPQRSTUVWXYZ', 'abcdefghijklmnopqrstuvwxyz'), 'sold')]"))
+      .then(async els => els.length > 0 ? 'Sold' : 'Available');
 
     let luthier = 'N/A';
     if (modelName.includes('"')) {
@@ -50,8 +49,8 @@ async function scrapeGuitarSalon(url) {
       }
     }
 
-    const allImages = await driver.findElements(By.css('img'));
     let thumbnail = null;
+    const allImages = await driver.findElements(By.css('img'));
     for (let img of allImages) {
       const src = await img.getAttribute('src');
       if (src && src.includes('/product/') && (src.endsWith('.webp') || src.endsWith('.jpg'))) {
@@ -67,7 +66,7 @@ async function scrapeGuitarSalon(url) {
       "Back and Sides Wood": specs['back & sides'] || 'African Rosewood',
       "Price": price,
       "Condition": specs['condition'] || 'New',
-      "Availability": availability,
+      "Availability": availabilityText,
       "Images": thumbnail ? [thumbnail] : [`See more: ${url}`],
       "url": url,
       "luthier": luthier
