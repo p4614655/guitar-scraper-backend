@@ -1,5 +1,5 @@
-// shops/scrapeGuitarSalon.selenium.js — v1.8.9
-const { Builder, By, until } = require('selenium-webdriver');
+// shops/scrapeGuitarSalon.selenium.js — v1.9.0
+const { Builder, By } = require('selenium-webdriver');
 const chrome = require('selenium-webdriver/chrome');
 
 async function scrapeGuitarSalon(url) {
@@ -12,24 +12,27 @@ async function scrapeGuitarSalon(url) {
 
   try {
     await driver.get(url);
-    await driver.sleep(2000); // initial wait
+    await driver.sleep(6000);
 
     const modelName = await driver.findElement(By.css('h1')).getText().catch(() => new URL(url).hostname);
 
-    // ✅ Wait for price element
+    // Manually loop through all <h3> to find one with data-update="price"
+    const h3s = await driver.findElements(By.css('h3'));
     let price = 'N/A';
-    try {
-      const priceEl = await driver.wait(until.elementLocated(By.css('h3[data-update="price"].price-new.mb-0')), 8000);
-      price = await priceEl.getText();
-    } catch (e) {
-      console.error('[Selenium] Price not found:', e.message);
+    for (let h3 of h3s) {
+      const attr = await h3.getAttribute('data-update');
+      if (attr === 'price') {
+        price = await h3.getText();
+        break;
+      }
     }
 
-    // ⛔ Remove failing description scraping
-    const description = 'N/A';
+    const description = await driver.findElement(By.css('#tab-description, .product-summary-container')).getText().catch((e) => {
+      console.error('[Selenium] Description not found:', e.message);
+      return 'N/A';
+    });
 
-    const availabilityText = await driver.findElements(By.xpath("//div[contains(@class,'product-label') and contains(translate(text(), 'ABCDEFGHIJKLMNOPQRSTUVWXYZ', 'abcdefghijklmnopqrstuvwxyz'), 'sold')]"))
-      .then(async els => els.length > 0 ? 'Sold' : 'Available');
+    const availabilityText = await driver.findElements(By.xpath("//div[contains(@class,'product-label') and contains(translate(text(), 'ABCDEFGHIJKLMNOPQRSTUVWXYZ', 'abcdefghijklmnopqrstuvwxyz'), 'sold')]")).then(async els => els.length > 0 ? 'Sold' : 'Available');
 
     let luthier = 'N/A';
     if (modelName.includes('"')) {
@@ -49,8 +52,8 @@ async function scrapeGuitarSalon(url) {
       }
     }
 
-    let thumbnail = null;
     const allImages = await driver.findElements(By.css('img'));
+    let thumbnail = null;
     for (let img of allImages) {
       const src = await img.getAttribute('src');
       if (src && src.includes('/product/') && (src.endsWith('.webp') || src.endsWith('.jpg'))) {
