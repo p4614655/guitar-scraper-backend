@@ -10,16 +10,6 @@ const app = express();
 app.use(cors());
 app.use(express.json());
 
-app.post('/api/scrape', async (req, res) => {
-  const { url } = req.body;
-  try {
-    const productInfo = await extractProductInfo(url);
-    res.json(productInfo);
-  } catch (error) {
-    res.status(500).json({ error: error.message });
-  }
-});
-
 app.get('/api/scrape-selenium', async (req, res) => {
   const url = req.query.url;
   if (!url) {
