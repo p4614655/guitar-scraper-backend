@@ -1,4 +1,4 @@
-// shops/scrapeGuitarSalon.selenium.js — v1.9.0
+// shops/scrapeGuitarSalon.selenium.js — v1.9.1
 const { Builder, By } = require('selenium-webdriver');
 const chrome = require('selenium-webdriver/chrome');
 
@@ -16,23 +16,23 @@ async function scrapeGuitarSalon(url) {
 
     const modelName = await driver.findElement(By.css('h1')).getText().catch(() => new URL(url).hostname);
 
-    // Manually loop through all <h3> to find one with data-update="price"
-    const h3s = await driver.findElements(By.css('h3'));
     let price = 'N/A';
-    for (let h3 of h3s) {
-      const attr = await h3.getAttribute('data-update');
-      if (attr === 'price') {
-        price = await h3.getText();
-        break;
+    try {
+      const allH3s = await driver.findElements(By.css('h3'));
+      for (const h3 of allH3s) {
+        const text = await h3.getText();
+        if (text && text.match(/^\p{Sc}?\d+[,.]?\d*/u)) {
+          price = text;
+          break;
+        }
       }
+      if (price === 'N/A') console.error('[Selenium] Price not found via iteration.');
+    } catch (err) {
+      console.error('[Selenium] Price iteration failed:', err.message);
     }
 
-    const description = await driver.findElement(By.css('#tab-description, .product-summary-container')).getText().catch((e) => {
-      console.error('[Selenium] Description not found:', e.message);
-      return 'N/A';
-    });
-
-    const availabilityText = await driver.findElements(By.xpath("//div[contains(@class,'product-label') and contains(translate(text(), 'ABCDEFGHIJKLMNOPQRSTUVWXYZ', 'abcdefghijklmnopqrstuvwxyz'), 'sold')]")).then(async els => els.length > 0 ? 'Sold' : 'Available');
+    const availabilityText = await driver.findElements(By.xpath("//div[contains(@class,'product-label') and contains(translate(text(), 'ABCDEFGHIJKLMNOPQRSTUVWXYZ', 'abcdefghijklmnopqrstuvwxyz'), 'sold')]"))
+      .then(async els => els.length > 0 ? 'Sold' : 'Available');
 
     let luthier = 'N/A';
     if (modelName.includes('"')) {
