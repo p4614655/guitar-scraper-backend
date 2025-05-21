@@ -1,4 +1,4 @@
-const { Builder, By, until } = require('selenium-webdriver');
+const { Builder, By } = require('selenium-webdriver');
 const chrome = require('selenium-webdriver/chrome');
 
 async function scrapeGuitarSalon(url) {
@@ -6,59 +6,51 @@ async function scrapeGuitarSalon(url) {
 
   const options = new chrome.Options();
   options.addArguments('--headless', '--no-sandbox', '--disable-dev-shm-usage');
-
   const driver = await new Builder().forBrowser('chrome').setChromeOptions(options).build();
 
   try {
     await driver.get(url);
+    await driver.sleep(6000); // Wait for page to render
 
-    const modelName = await driver.findElement(By.css('h1')).getText().catch(() => new URL(url).hostname);
+    // ✅ Model Name
+    let modelName = 'N/A';
+    try {
+      modelName = await driver.findElement(By.css('h1')).getText();
+    } catch {
+      modelName = new URL(url).hostname;
+    }
 
-    // ✅ Explicit wait for price element
+    // ✅ Price (brute-force search)
     let price = 'N/A';
     try {
-      const el = await driver.wait(
-        async () => {
-          const h3s = await driver.findElements(By.css('h3'));
-          for (const h3 of h3s) {
-            const dataUpdate = await h3.getAttribute('data-update');
-            const classAttr = await h3.getAttribute('class');
-            const text = await h3.getText();
-
-            if (
-              dataUpdate === 'price' &&
-              classAttr?.includes('price-new') &&
-              classAttr?.includes('mb-0') &&
-              text
-            ) {
-              return h3;
-            }
-          }
-          return false;
-        },
-        10000,
-        'Price element not found in time.'
-      );
-
-      price = await el.getText();
+      const h3s = await driver.findElements(By.css('h3'));
+      for (const h3 of h3s) {
+        const text = await h3.getText();
+        if (text && text.includes('$')) {
+          price = text.trim();
+          break;
+        }
+      }
     } catch (err) {
-      console.error('[Selenium] Price wait/iteration failed:', err.message);
+      console.error('[Selenium] Price extraction failed:', err.message);
     }
 
     // ✅ Availability
-    const availabilityText = await driver.findElements(By.xpath(
-      "//div[contains(@class,'product-label') and contains(translate(text(), 'ABCDEFGHIJKLMNOPQRSTUVWXYZ', 'abcdefghijklmnopqrstuvwxyz'), 'sold')]"
-    )).then(els => els.length > 0 ? 'Sold' : 'Available');
+    let availability = 'Available';
+    try {
+      const soldLabel = await driver.findElements(By.xpath("//div[contains(translate(text(), 'ABCDEFGHIJKLMNOPQRSTUVWXYZ', 'abcdefghijklmnopqrstuvwxyz'), 'sold')]"));
+      if (soldLabel.length > 0) availability = 'Sold';
+    } catch {}
 
-    // ✅ Luthier
+    // ✅ Luthier from URL
     let luthier = 'N/A';
-    if (modelName.includes('"')) {
-      luthier = modelName.split('"')[0].trim().replace(/^202\d\s*/, '');
-    } else {
-      luthier = modelName.split(' ')[0].trim();
-    }
+    try {
+      const path = url.split('/product/')[1] || '';
+      const parts = path.split('-');
+      luthier = parts.length > 1 ? parts[1] : 'N/A';
+    } catch {}
 
-    // ✅ Specs
+    // ✅ Specs (year, top, back & sides, condition)
     const specRows = await driver.findElements(By.css('table tr'));
     const specs = {};
     for (let row of specRows) {
@@ -70,16 +62,18 @@ async function scrapeGuitarSalon(url) {
       }
     }
 
-    // ✅ Thumbnail image
-    const allImages = await driver.findElements(By.css('img'));
+    // ✅ Image
     let thumbnail = null;
-    for (let img of allImages) {
-      const src = await img.getAttribute('src');
-      if (src && src.includes('/product/') && (src.endsWith('.webp') || src.endsWith('.jpg'))) {
-        thumbnail = src;
-        break;
+    try {
+      const imgs = await driver.findElements(By.css('img'));
+      for (let img of imgs) {
+        const src = await img.getAttribute('src');
+        if (src && src.includes('/product/') && (src.endsWith('.webp') || src.endsWith('.jpg'))) {
+          thumbnail = src;
+          break;
+        }
       }
-    }
+    } catch {}
 
     return {
       "Model Name": modelName,
@@ -88,14 +82,14 @@ async function scrapeGuitarSalon(url) {
       "Back and Sides Wood": specs['back & sides'] || 'African Rosewood',
       "Price": price,
       "Condition": specs['condition'] || 'New',
-      "Availability": availabilityText,
+      "Availability": availability,
       "Images": thumbnail ? [thumbnail] : [`See more: ${url}`],
       "url": url,
       "luthier": luthier
     };
   } catch (err) {
     console.error('[Selenium] Scrape error:', err.message);
-    throw new Error('Failed to scrape with Selenium.');
+    return { error: 'Failed to scrape with Selenium.' };
   } finally {
     await driver.quit();
   }
