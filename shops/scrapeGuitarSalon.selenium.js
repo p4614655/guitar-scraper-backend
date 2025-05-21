@@ -11,21 +11,40 @@ async function scrapeGuitarSalon(url) {
 
   try {
     await driver.get(url);
-    await driver.sleep(6000);
+    await driver.sleep(6000); // Allow DOM to fully render
 
     const modelName = await driver.findElement(By.css('h1')).getText().catch(() => new URL(url).hostname);
 
+    // ✅ Robust price scraping
     let price = 'N/A';
     try {
-      const el = await driver.findElement(By.css('h3[data-update="price"].price-new.mb-0'));
-      price = await el.getText();
+      const h3s = await driver.findElements(By.css('h3'));
+      for (const h3 of h3s) {
+        const dataUpdate = await h3.getAttribute('data-update');
+        const classAttr = await h3.getAttribute('class');
+        const text = await h3.getText();
+
+        if (
+          dataUpdate === 'price' &&
+          classAttr?.includes('price-new') &&
+          classAttr?.includes('mb-0') &&
+          text
+        ) {
+          price = text.trim();
+          break;
+        }
+      }
+      if (price === 'N/A') console.error('[Selenium] Price not found via attribute-matching iteration.');
     } catch (err) {
-      console.error('[Selenium] Price extraction failed:', err.message);
+      console.error('[Selenium] Price iteration failed:', err.message);
     }
 
-    const availabilityText = await driver.findElements(By.xpath("//div[contains(@class,'product-label') and contains(translate(text(), 'ABCDEFGHIJKLMNOPQRSTUVWXYZ', 'abcdefghijklmnopqrstuvwxyz'), 'sold')]"))
-      .then(els => els.length > 0 ? 'Sold' : 'Available');
+    // ✅ Availability
+    const availabilityText = await driver.findElements(By.xpath(
+      "//div[contains(@class,'product-label') and contains(translate(text(), 'ABCDEFGHIJKLMNOPQRSTUVWXYZ', 'abcdefghijklmnopqrstuvwxyz'), 'sold')]"
+    )).then(els => els.length > 0 ? 'Sold' : 'Available');
 
+    // ✅ Luthier
     let luthier = 'N/A';
     if (modelName.includes('"')) {
       luthier = modelName.split('"')[0].trim().replace(/^202\d\s*/, '');
@@ -33,6 +52,7 @@ async function scrapeGuitarSalon(url) {
       luthier = modelName.split(' ')[0].trim();
     }
 
+    // ✅ Specs
     const specRows = await driver.findElements(By.css('table tr'));
     const specs = {};
     for (let row of specRows) {
@@ -44,6 +64,7 @@ async function scrapeGuitarSalon(url) {
       }
     }
 
+    // ✅ Thumbnail image
     const allImages = await driver.findElements(By.css('img'));
     let thumbnail = null;
     for (let img of allImages) {
