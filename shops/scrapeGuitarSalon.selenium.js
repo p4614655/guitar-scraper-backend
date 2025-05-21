@@ -11,30 +11,16 @@ async function scrapeGuitarSalon(url) {
 
   try {
     await driver.get(url);
-    await driver.sleep(6000); // Wait for DOM to load fully
+    await driver.sleep(6000);
 
     const modelName = await driver.findElement(By.css('h1')).getText().catch(() => new URL(url).hostname);
 
     let price = 'N/A';
     try {
-      const allH3s = await driver.findElements(By.css('h3'));
-      for (const h3 of allH3s) {
-        const dataUpdate = await h3.getAttribute('data-update');
-        const classAttr = await h3.getAttribute('class');
-        const text = await h3.getText();
-
-        if (
-          dataUpdate === 'price' &&
-          classAttr?.includes('price-new') &&
-          classAttr?.includes('mb-0') &&
-          text
-        ) {
-          price = text.trim();
-          break;
-        }
-      }
+      const el = await driver.findElement(By.css('h3[data-update="price"].price-new.mb-0'));
+      price = await el.getText();
     } catch (err) {
-      console.error('[Selenium] Price scrape error:', err.message);
+      console.error('[Selenium] Price extraction failed:', err.message);
     }
 
     const availabilityText = await driver.findElements(By.xpath("//div[contains(@class,'product-label') and contains(translate(text(), 'ABCDEFGHIJKLMNOPQRSTUVWXYZ', 'abcdefghijklmnopqrstuvwxyz'), 'sold')]"))
