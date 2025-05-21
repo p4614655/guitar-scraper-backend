@@ -1,4 +1,4 @@
-const { Builder, By } = require('selenium-webdriver');
+const { Builder, By, until } = require('selenium-webdriver');
 const chrome = require('selenium-webdriver/chrome');
 
 async function scrapeGuitarSalon(url) {
@@ -11,32 +11,38 @@ async function scrapeGuitarSalon(url) {
 
   try {
     await driver.get(url);
-    await driver.sleep(6000); // Allow DOM to fully render
 
     const modelName = await driver.findElement(By.css('h1')).getText().catch(() => new URL(url).hostname);
 
-    // ✅ Robust price scraping
+    // ✅ Explicit wait for price element
     let price = 'N/A';
     try {
-      const h3s = await driver.findElements(By.css('h3'));
-      for (const h3 of h3s) {
-        const dataUpdate = await h3.getAttribute('data-update');
-        const classAttr = await h3.getAttribute('class');
-        const text = await h3.getText();
+      const el = await driver.wait(
+        async () => {
+          const h3s = await driver.findElements(By.css('h3'));
+          for (const h3 of h3s) {
+            const dataUpdate = await h3.getAttribute('data-update');
+            const classAttr = await h3.getAttribute('class');
+            const text = await h3.getText();
 
-        if (
-          dataUpdate === 'price' &&
-          classAttr?.includes('price-new') &&
-          classAttr?.includes('mb-0') &&
-          text
-        ) {
-          price = text.trim();
-          break;
-        }
-      }
-      if (price === 'N/A') console.error('[Selenium] Price not found via attribute-matching iteration.');
+            if (
+              dataUpdate === 'price' &&
+              classAttr?.includes('price-new') &&
+              classAttr?.includes('mb-0') &&
+              text
+            ) {
+              return h3;
+            }
+          }
+          return false;
+        },
+        10000,
+        'Price element not found in time.'
+      );
+
+      price = await el.getText();
     } catch (err) {
-      console.error('[Selenium] Price iteration failed:', err.message);
+      console.error('[Selenium] Price wait/iteration failed:', err.message);
     }
 
     // ✅ Availability
