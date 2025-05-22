@@ -10,7 +10,7 @@ async function scrapeGuitarSalon(url) {
 
   try {
     await driver.get(url);
-    await driver.sleep(6000); // Wait for page to render
+    await driver.sleep(6000); // allow DOM to settle
 
     // ✅ Model Name
     let modelName = 'N/A';
@@ -20,16 +20,21 @@ async function scrapeGuitarSalon(url) {
       modelName = new URL(url).hostname;
     }
 
-    // ✅ Price (brute-force search)
+    // ✅ Price — failproof method
     let price = 'N/A';
     try {
       const h3s = await driver.findElements(By.css('h3'));
       for (const h3 of h3s) {
-        const text = await h3.getText();
-        if (text && text.includes('$')) {
-          price = text.trim();
+        const rawText = await h3.getText();
+        if (rawText && /\$\d/.test(rawText)) {
+          price = rawText.trim();
           break;
         }
+      }
+      if (price === 'N/A') {
+        // XPath fallback in case DOM is broken
+        const priceFallback = await driver.findElement(By.xpath("//h3[contains(text(), '$')]")).getText();
+        if (priceFallback) price = priceFallback.trim();
       }
     } catch (err) {
       console.error('[Selenium] Price extraction failed:', err.message);
@@ -42,15 +47,20 @@ async function scrapeGuitarSalon(url) {
       if (soldLabel.length > 0) availability = 'Sold';
     } catch {}
 
-    // ✅ Luthier from URL
+    // ✅ Luthier from title
     let luthier = 'N/A';
     try {
-      const path = url.split('/product/')[1] || '';
-      const parts = path.split('-');
-      luthier = parts.length > 1 ? parts[1] : 'N/A';
+      const title = modelName;
+      const noYear = title.replace(/^20\d{2}\s*/, ''); // remove year if present
+      const parts = noYear.split(' ');
+      if (parts.length >= 2) {
+        luthier = parts.slice(0, 2).join(' '); // FirstName LastName
+      } else {
+        luthier = parts[0];
+      }
     } catch {}
 
-    // ✅ Specs (year, top, back & sides, condition)
+    // ✅ Specs
     const specRows = await driver.findElements(By.css('table tr'));
     const specs = {};
     for (let row of specRows) {
