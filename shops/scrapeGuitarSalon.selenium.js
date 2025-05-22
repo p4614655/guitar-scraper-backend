@@ -1,4 +1,4 @@
-const { Builder, By } = require('selenium-webdriver');
+const { Builder, By, until } = require('selenium-webdriver');
 const chrome = require('selenium-webdriver/chrome');
 
 async function scrapeGuitarSalon(url) {
@@ -6,58 +6,52 @@ async function scrapeGuitarSalon(url) {
 
   const options = new chrome.Options();
   options.addArguments('--headless', '--no-sandbox', '--disable-dev-shm-usage');
+
   const driver = await new Builder().forBrowser('chrome').setChromeOptions(options).build();
 
   try {
     await driver.get(url);
-    await driver.sleep(6000); // allow DOM to settle
+
+    // ✅ Force DOM to load properly by waiting for title
+    await driver.wait(until.elementLocated(By.css('h1')), 10000);
 
     // ✅ Model Name
     let modelName = 'N/A';
     try {
       modelName = await driver.findElement(By.css('h1')).getText();
-    } catch {
+    } catch (e) {
+      console.warn('[Selenium] Model name not found:', e.message);
       modelName = new URL(url).hostname;
     }
 
-    // ✅ Price — failproof method
+    // ✅ Luthier — extract from model title
+    let luthier = 'N/A';
+    try {
+      const noYear = modelName.replace(/^20\d{2}\s*/, ''); // strip year
+      const luthierGuess = noYear.split(/SP|MP|/)[0].trim(); // remove model suffix
+      luthier = luthierGuess;
+    } catch {}
+
+    // ✅ Price — raw loop over all h3s
     let price = 'N/A';
     try {
       const h3s = await driver.findElements(By.css('h3'));
       for (const h3 of h3s) {
-        const rawText = await h3.getText();
-        if (rawText && /\$\d/.test(rawText)) {
-          price = rawText.trim();
+        const text = await h3.getText();
+        if (text && text.includes('$')) {
+          price = text.trim();
           break;
         }
       }
-      if (price === 'N/A') {
-        // XPath fallback in case DOM is broken
-        const priceFallback = await driver.findElement(By.xpath("//h3[contains(text(), '$')]")).getText();
-        if (priceFallback) price = priceFallback.trim();
-      }
     } catch (err) {
-      console.error('[Selenium] Price extraction failed:', err.message);
+      console.warn('[Selenium] Price extraction failed:', err.message);
     }
 
     // ✅ Availability
     let availability = 'Available';
     try {
-      const soldLabel = await driver.findElements(By.xpath("//div[contains(translate(text(), 'ABCDEFGHIJKLMNOPQRSTUVWXYZ', 'abcdefghijklmnopqrstuvwxyz'), 'sold')]"));
-      if (soldLabel.length > 0) availability = 'Sold';
-    } catch {}
-
-    // ✅ Luthier from title
-    let luthier = 'N/A';
-    try {
-      const title = modelName;
-      const noYear = title.replace(/^20\d{2}\s*/, ''); // remove year if present
-      const parts = noYear.split(' ');
-      if (parts.length >= 2) {
-        luthier = parts.slice(0, 2).join(' '); // FirstName LastName
-      } else {
-        luthier = parts[0];
-      }
+      const sold = await driver.findElements(By.xpath("//div[contains(translate(text(), 'ABCDEFGHIJKLMNOPQRSTUVWXYZ', 'abcdefghijklmnopqrstuvwxyz'), 'sold')]"));
+      if (sold.length > 0) availability = 'Sold';
     } catch {}
 
     // ✅ Specs
@@ -98,8 +92,12 @@ async function scrapeGuitarSalon(url) {
       "luthier": luthier
     };
   } catch (err) {
-    console.error('[Selenium] Scrape error:', err.message);
-    return { error: 'Failed to scrape with Selenium.' };
+    console.error('[Selenium] Total failure:', err.message);
+
+    const html = await driver.getPageSource();
+    console.error('[Selenium] Dumping HTML:', html.slice(0, 500));
+
+    return { error: 'Scrape failed. DOM did not render as expected.' };
   } finally {
     await driver.quit();
   }
