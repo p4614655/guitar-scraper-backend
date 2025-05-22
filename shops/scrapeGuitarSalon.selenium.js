@@ -1,105 +1,97 @@
-const { Builder, By, until } = require('selenium-webdriver');
-const chrome = require('selenium-webdriver/chrome');
+const puppeteer = require('puppeteer');
 
 async function scrapeGuitarSalon(url) {
-  console.log(`[Selenium] Navigating to: ${url}`);
+  console.log(`[Puppeteer] Navigating to: ${url}`);
 
-  const options = new chrome.Options();
-  options.addArguments('--headless', '--no-sandbox', '--disable-dev-shm-usage');
-
-  const driver = await new Builder().forBrowser('chrome').setChromeOptions(options).build();
+  const browser = await puppeteer.launch({
+    headless: true,
+    args: ['--no-sandbox', '--disable-setuid-sandbox'],
+  });
+  const page = await browser.newPage();
 
   try {
-    await driver.get(url);
+    await page.goto(url, { waitUntil: 'networkidle2', timeout: 30000 });
 
-    // ✅ Force DOM to load properly by waiting for title
-    await driver.wait(until.elementLocated(By.css('h1')), 10000);
+    // Model Name
+    let modelName = await page.$eval('h1', el => el.innerText.trim()).catch(() => 'N/A');
 
-    // ✅ Model Name
-    let modelName = 'N/A';
-    try {
-      modelName = await driver.findElement(By.css('h1')).getText();
-    } catch (e) {
-      console.warn('[Selenium] Model name not found:', e.message);
-      modelName = new URL(url).hostname;
-    }
-
-    // ✅ Luthier — extract from model title
+    // Luthier (from model title, remove year and suffix)
     let luthier = 'N/A';
     try {
-      const noYear = modelName.replace(/^20\d{2}\s*/, ''); // strip year
-      const luthierGuess = noYear.split(/SP|MP|/)[0].trim(); // remove model suffix
-      luthier = luthierGuess;
+      const noYear = modelName.replace(/^20\d{2}\s*/, '');
+      const parts = noYear.split(' ');
+      if (parts.length >= 2) {
+        luthier = parts.slice(0, 2).join(' ');
+      } else {
+        luthier = parts[0];
+      }
     } catch {}
 
-    // ✅ Price — raw loop over all h3s
+    // Price (search all h3s for a $)
     let price = 'N/A';
     try {
-      const h3s = await driver.findElements(By.css('h3'));
-      for (const h3 of h3s) {
-        const text = await h3.getText();
-        if (text && text.includes('$')) {
-          price = text.trim();
-          break;
-        }
-      }
-    } catch (err) {
-      console.warn('[Selenium] Price extraction failed:', err.message);
-    }
+      const h3s = await page.$$eval('h3', nodes =>
+        nodes.map(n => n.innerText).find(t => t.includes('$')) || 'N/A'
+      );
+      if (h3s && h3s !== 'N/A') price = h3s.trim();
+    } catch {}
 
-    // ✅ Availability
+    // Availability
     let availability = 'Available';
     try {
-      const sold = await driver.findElements(By.xpath("//div[contains(translate(text(), 'ABCDEFGHIJKLMNOPQRSTUVWXYZ', 'abcdefghijklmnopqrstuvwxyz'), 'sold')]"));
+      const sold = await page.$x("//div[contains(translate(text(), 'ABCDEFGHIJKLMNOPQRSTUVWXYZ', 'abcdefghijklmnopqrstuvwxyz'), 'sold')]");
       if (sold.length > 0) availability = 'Sold';
     } catch {}
 
-    // ✅ Specs
-    const specRows = await driver.findElements(By.css('table tr'));
-    const specs = {};
-    for (let row of specRows) {
-      const cells = await row.findElements(By.css('td'));
-      if (cells.length === 2) {
-        const label = (await cells[0].getText()).trim().toLowerCase();
-        const value = (await cells[1].getText()).trim();
-        specs[label] = value;
-      }
-    }
+    // Specs
+    const specs = {
+      year: '2025',
+      top: 'Spruce',
+      'back & sides': 'African Rosewood',
+      condition: 'New',
+    };
 
-    // ✅ Image
-    let thumbnail = null;
     try {
-      const imgs = await driver.findElements(By.css('img'));
-      for (let img of imgs) {
-        const src = await img.getAttribute('src');
-        if (src && src.includes('/product/') && (src.endsWith('.webp') || src.endsWith('.jpg'))) {
-          thumbnail = src;
-          break;
+      const rows = await page.$$('table tr');
+      for (const row of rows) {
+        const tds = await row.$$('td');
+        if (tds.length === 2) {
+          const label = (await (await tds[0].getProperty('innerText')).jsonValue()).trim().toLowerCase();
+          const value = (await (await tds[1].getProperty('innerText')).jsonValue()).trim();
+          specs[label] = value;
         }
       }
     } catch {}
 
+    // Thumbnail
+    let thumbnail = null;
+    try {
+      const imgs = await page.$$eval('img', imgs =>
+        imgs.map(i => i.src).find(src =>
+          src.includes('/product/') && (src.endsWith('.webp') || src.endsWith('.jpg'))
+        )
+      );
+      if (imgs) thumbnail = imgs;
+    } catch {}
+
+    await browser.close();
+
     return {
       "Model Name": modelName,
-      "Year": specs['year'] || '2025',
-      "Top Wood": specs['top'] || 'Spruce',
-      "Back and Sides Wood": specs['back & sides'] || 'African Rosewood',
+      "Year": specs['year'],
+      "Top Wood": specs['top'],
+      "Back and Sides Wood": specs['back & sides'],
       "Price": price,
-      "Condition": specs['condition'] || 'New',
+      "Condition": specs['condition'],
       "Availability": availability,
       "Images": thumbnail ? [thumbnail] : [`See more: ${url}`],
       "url": url,
       "luthier": luthier
     };
   } catch (err) {
-    console.error('[Selenium] Total failure:', err.message);
-
-    const html = await driver.getPageSource();
-    console.error('[Selenium] Dumping HTML:', html.slice(0, 500));
-
-    return { error: 'Scrape failed. DOM did not render as expected.' };
-  } finally {
-    await driver.quit();
+    console.error('[Puppeteer] Scrape error:', err.message);
+    await browser.close();
+    throw new Error('Failed to scrape with Puppeteer.');
   }
 }
 
