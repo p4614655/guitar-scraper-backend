@@ -1,46 +1,50 @@
 const express = require('express');
 const cors = require('cors');
-const scrapeGuitarSalon = require('./shops/scrapeGuitarSalon.selenium');
-
 const app = express();
-const PORT = process.env.PORT || 3000;
+const PORT = process.env.PORT || 8080;
 
+// ✅ Scraper imports (kept separate)
+const scrapeGuitarSalonSelenium = require('./shops/scrapeGuitarSalon.selenium');
+const scrapeGuitarSalonPuppeteer = require('./shops/scrapeGuitarSalon.puppeteer');
+
+// ✅ Middleware
 app.use(cors());
 app.use(express.json());
 
-// ✅ GET route (for Hoppscotch and simple testing)
+// ✅ Default route
+app.get('/', (req, res) => {
+  res.send('Guitar Salon Scraper API is running.');
+});
+
+// ✅ Selenium-based route
 app.get('/scrape/guitarsalon', async (req, res) => {
   const url = req.query.url;
   if (!url) return res.status(400).json({ error: 'Missing URL' });
 
   try {
-    const data = await scrapeGuitarSalon(url);
+    const data = await scrapeGuitarSalonSelenium(url);
     res.json(data);
   } catch (err) {
-    console.error('[GET] Scrape failed:', err.message);
-    res.status(500).json({ error: 'Scraping failed.' });
+    console.error('[Selenium Error]', err.message);
+    res.status(500).json({ error: err.message });
   }
 });
 
-// ✅ POST route (for automation or frontend usage)
-app.post('/scrape/guitarsalon', async (req, res) => {
-  const { url } = req.body;
+// ✅ Puppeteer-based route
+app.get('/scrape/guitarsalon-puppeteer', async (req, res) => {
+  const url = req.query.url;
   if (!url) return res.status(400).json({ error: 'Missing URL' });
 
   try {
-    const data = await scrapeGuitarSalon(url);
+    const data = await scrapeGuitarSalonPuppeteer(url);
     res.json(data);
   } catch (err) {
-    console.error('[POST] Scrape failed:', err.message);
-    res.status(500).json({ error: 'Scraping failed.' });
+    console.error('[Puppeteer Error]', err.message);
+    res.status(500).json({ error: err.message });
   }
 });
 
-// Default home route
-app.get('/', (req, res) => {
-  res.send('Guitar Salon Scraper API is running.');
-});
-
+// ✅ Start the server
 app.listen(PORT, () => {
   console.log(`Server running on port ${PORT}`);
 });
