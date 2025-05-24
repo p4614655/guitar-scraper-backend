@@ -3,20 +3,19 @@ const cors = require('cors');
 const app = express();
 const PORT = process.env.PORT || 8080;
 
-// ✅ Import scrapers (kept separate)
+// ✅ Import scrapers
 const scrapeGuitarSalonSelenium = require('./shops/scrapeGuitarSalon.selenium');
 const scrapeGuitarSalonPuppeteer = require('./shops/scrapeGuitarSalon.puppeteer');
 
-// ✅ Middleware
 app.use(cors());
 app.use(express.json());
 
-// ✅ Root health check
+// ✅ Health check
 app.get('/', (req, res) => {
   res.send('🎸 Guitar Salon Scraper API is running.');
 });
 
-// ✅ Selenium route
+// ✅ Selenium scraper route
 app.get('/scrape/guitarsalon', async (req, res) => {
   const url = req.query.url;
   if (!url) return res.status(400).json({ error: 'Missing URL' });
@@ -30,7 +29,7 @@ app.get('/scrape/guitarsalon', async (req, res) => {
   }
 });
 
-// ✅ Puppeteer route
+// ✅ Puppeteer scraper route
 app.get('/scrape/guitarsalon-puppeteer', async (req, res) => {
   const url = req.query.url;
   if (!url) return res.status(400).json({ error: 'Missing URL' });
@@ -44,7 +43,6 @@ app.get('/scrape/guitarsalon-puppeteer', async (req, res) => {
   }
 });
 
-// ✅ Start server
 app.listen(PORT, () => {
   console.log(`🚀 Server running on port ${PORT}`);
 });
