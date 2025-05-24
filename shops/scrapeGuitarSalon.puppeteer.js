@@ -1,39 +1,36 @@
-const puppeteer = require('puppeteer');
+const puppeteer = require('puppeteer-core');
 
 async function scrapeGuitarSalon(url) {
   console.log(`[Puppeteer] Navigating to: ${url}`);
 
   const browser = await puppeteer.launch({
+    executablePath: process.env.CHROME_BIN || '/usr/bin/chromium',
     headless: true,
-    args: ['--no-sandbox', '--disable-setuid-sandbox'],
+    args: ['--no-sandbox', '--disable-setuid-sandbox']
   });
+
   const page = await browser.newPage();
 
   try {
+    await page.setUserAgent('Mozilla/5.0 (Windows NT 10.0; Win64; x64)');
     await page.goto(url, { waitUntil: 'networkidle2', timeout: 30000 });
 
     // Model Name
-    let modelName = await page.$eval('h1', el => el.innerText.trim()).catch(() => 'N/A');
+    const modelName = await page.$eval('h1', el => el.innerText.trim()).catch(() => 'N/A');
 
-    // Luthier (from model title, remove year and suffix)
+    // Luthier
     let luthier = 'N/A';
     try {
-      const noYear = modelName.replace(/^20\d{2}\s*/, '');
-      const parts = noYear.split(' ');
-      if (parts.length >= 2) {
-        luthier = parts.slice(0, 2).join(' ');
-      } else {
-        luthier = parts[0];
-      }
+      const clean = modelName.replace(/^20\d{2}\s*/, '');
+      luthier = clean.split(' ').slice(0, 2).join(' ');
     } catch {}
 
-    // Price (search all h3s for a $)
+    // Price
     let price = 'N/A';
     try {
-      const h3s = await page.$$eval('h3', nodes =>
-        nodes.map(n => n.innerText).find(t => t.includes('$')) || 'N/A'
+      price = await page.$$eval('h3', els =>
+        els.map(el => el.innerText.trim()).find(text => text.includes('$')) || 'N/A'
       );
-      if (h3s && h3s !== 'N/A') price = h3s.trim();
     } catch {}
 
     // Availability
@@ -48,7 +45,7 @@ async function scrapeGuitarSalon(url) {
       year: '2025',
       top: 'Spruce',
       'back & sides': 'African Rosewood',
-      condition: 'New',
+      condition: 'New'
     };
 
     try {
@@ -66,12 +63,9 @@ async function scrapeGuitarSalon(url) {
     // Thumbnail
     let thumbnail = null;
     try {
-      const imgs = await page.$$eval('img', imgs =>
-        imgs.map(i => i.src).find(src =>
-          src.includes('/product/') && (src.endsWith('.webp') || src.endsWith('.jpg'))
-        )
+      thumbnail = await page.$$eval('img', imgs =>
+        imgs.map(img => img.src).find(src => src.includes('/product/') && (src.endsWith('.webp') || src.endsWith('.jpg')))
       );
-      if (imgs) thumbnail = imgs;
     } catch {}
 
     await browser.close();
@@ -89,8 +83,8 @@ async function scrapeGuitarSalon(url) {
       "luthier": luthier
     };
   } catch (err) {
-    console.error('[Puppeteer] Scrape error:', err.message);
     await browser.close();
+    console.error('[Puppeteer] Scrape failed:', err.message);
     throw new Error('Failed to scrape with Puppeteer.');
   }
 }
