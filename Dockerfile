@@ -1,28 +1,42 @@
-FROM node:18
+# Use official Node LTS image
+FROM node:18-slim
 
-# Install Chromium and dependencies
+# Install necessary packages for Puppeteer/Chromium
 RUN apt-get update && apt-get install -y \
-  wget gnupg unzip curl \
-  libnss3 libatk1.0-0 libatk-bridge2.0-0 libcups2 libgbm1 \
-  libasound2 libpangocairo-1.0-0 libxss1 libgtk-3-0 libxshmfence1 libglu1 \
-  chromium
-
-# Install Chromedriver for Chromium v136
-RUN wget -q -O /tmp/chromedriver.zip https://storage.googleapis.com/chrome-for-testing-public/136.0.7103.39/linux64/chromedriver-linux64.zip && \
-    unzip /tmp/chromedriver.zip -d /usr/local/bin/ && \
-    mv /usr/local/bin/chromedriver-linux64/chromedriver /usr/local/bin/chromedriver && \
-    chmod +x /usr/local/bin/chromedriver && \
-    rm -rf /tmp/chromedriver.zip /usr/local/bin/chromedriver-linux64
+    chromium \
+    ca-certificates \
+    fonts-liberation \
+    libappindicator3-1 \
+    libasound2 \
+    libatk-bridge2.0-0 \
+    libatk1.0-0 \
+    libcups2 \
+    libdbus-1-3 \
+    libdrm2 \
+    libgbm1 \
+    libnspr4 \
+    libnss3 \
+    libx11-xcb1 \
+    libxcomposite1 \
+    libxdamage1 \
+    libxrandr2 \
+    xdg-utils \
+    --no-install-recommends && \
+    apt-get clean && rm -rf /var/lib/apt/lists/*
 
 # Set working directory
 WORKDIR /app
 
-# Copy source code and install Node.js dependencies
-COPY . .
+# Copy package files
+COPY package*.json ./
 RUN npm install
 
-# Set environment variables for Selenium
-ENV CHROME_BIN=/usr/bin/chromium
-ENV PATH="/usr/local/bin:$PATH"
+# Copy app code
+COPY . .
 
+# Puppeteer-specific environment variables
+ENV PUPPETEER_SKIP_CHROMIUM_DOWNLOAD=true
+ENV CHROME_BIN=/usr/bin/chromium
+
+# Start server
 CMD ["node", "index.js"]
