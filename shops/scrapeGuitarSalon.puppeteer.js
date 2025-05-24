@@ -15,17 +15,14 @@ async function scrapeGuitarSalon(url) {
     await page.setUserAgent('Mozilla/5.0 (Windows NT 10.0; Win64; x64)');
     await page.goto(url, { waitUntil: 'networkidle2', timeout: 30000 });
 
-    // Model Name
     const modelName = await page.$eval('h1', el => el.innerText.trim()).catch(() => 'N/A');
 
-    // Luthier
     let luthier = 'N/A';
     try {
-      const clean = modelName.replace(/^20\d{2}\s*/, '');
-      luthier = clean.split(' ').slice(0, 2).join(' ');
+      const noYear = modelName.replace(/^20\d{2}\s*/, '');
+      luthier = noYear.split(' ').slice(0, 2).join(' ');
     } catch {}
 
-    // Price
     let price = 'N/A';
     try {
       price = await page.$$eval('h3', els =>
@@ -33,14 +30,12 @@ async function scrapeGuitarSalon(url) {
       );
     } catch {}
 
-    // Availability
     let availability = 'Available';
     try {
       const sold = await page.$x("//div[contains(translate(text(), 'ABCDEFGHIJKLMNOPQRSTUVWXYZ', 'abcdefghijklmnopqrstuvwxyz'), 'sold')]");
       if (sold.length > 0) availability = 'Sold';
     } catch {}
 
-    // Specs
     const specs = {
       year: '2025',
       top: 'Spruce',
@@ -60,11 +55,12 @@ async function scrapeGuitarSalon(url) {
       }
     } catch {}
 
-    // Thumbnail
     let thumbnail = null;
     try {
       thumbnail = await page.$$eval('img', imgs =>
-        imgs.map(img => img.src).find(src => src.includes('/product/') && (src.endsWith('.webp') || src.endsWith('.jpg')))
+        imgs.map(img => img.src).find(src =>
+          src.includes('/product/') && (src.endsWith('.webp') || src.endsWith('.jpg'))
+        )
       );
     } catch {}
 
