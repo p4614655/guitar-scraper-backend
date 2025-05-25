@@ -4,9 +4,14 @@ async function scrapeGuitarSalon(url) {
   console.log(`[Puppeteer] Navigating to: ${url}`);
 
   const browser = await puppeteer.launch({
-    executablePath: process.env.CHROME_BIN || '/usr/bin/chromium',
+    executablePath: '/usr/bin/chromium', // Hard-coded path for Docker
     headless: true,
-    args: ['--no-sandbox', '--disable-setuid-sandbox']
+    args: [
+      '--no-sandbox',
+      '--disable-setuid-sandbox',
+      '--disable-dev-shm-usage',
+      '--disable-gpu'
+    ]
   });
 
   const page = await browser.newPage();
@@ -15,13 +20,14 @@ async function scrapeGuitarSalon(url) {
     await page.setUserAgent('Mozilla/5.0 (Windows NT 10.0; Win64; x64)');
     await page.goto(url, { waitUntil: 'networkidle2', timeout: 30000 });
 
+    // Model name
     const modelName = await page.$eval('h1', el => el.innerText.trim()).catch(() => 'N/A');
 
-    // Luthier: remove year and extract first 2 words
+    // Luthier from model title
     let luthier = 'N/A';
     try {
-      const noYear = modelName.replace(/^20\d{2}\s*/, '');
-      luthier = noYear.split(' ').slice(0, 2).join(' ');
+      const clean = modelName.replace(/^20\d{2}\s*/, '');
+      luthier = clean.split(' ').slice(0, 2).join(' ');
     } catch {}
 
     // Price
@@ -59,7 +65,7 @@ async function scrapeGuitarSalon(url) {
       }
     } catch {}
 
-    // Image
+    // Thumbnail image
     let thumbnail = null;
     try {
       thumbnail = await page.$$eval('img', imgs =>
