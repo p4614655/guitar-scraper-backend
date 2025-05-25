@@ -17,12 +17,14 @@ async function scrapeGuitarSalon(url) {
 
     const modelName = await page.$eval('h1', el => el.innerText.trim()).catch(() => 'N/A');
 
+    // Luthier: remove year and extract first 2 words
     let luthier = 'N/A';
     try {
       const noYear = modelName.replace(/^20\d{2}\s*/, '');
       luthier = noYear.split(' ').slice(0, 2).join(' ');
     } catch {}
 
+    // Price
     let price = 'N/A';
     try {
       price = await page.$$eval('h3', els =>
@@ -30,12 +32,14 @@ async function scrapeGuitarSalon(url) {
       );
     } catch {}
 
+    // Availability
     let availability = 'Available';
     try {
       const sold = await page.$x("//div[contains(translate(text(), 'ABCDEFGHIJKLMNOPQRSTUVWXYZ', 'abcdefghijklmnopqrstuvwxyz'), 'sold')]");
       if (sold.length > 0) availability = 'Sold';
     } catch {}
 
+    // Specs
     const specs = {
       year: '2025',
       top: 'Spruce',
@@ -55,6 +59,7 @@ async function scrapeGuitarSalon(url) {
       }
     } catch {}
 
+    // Image
     let thumbnail = null;
     try {
       thumbnail = await page.$$eval('img', imgs =>
